@@ -195,9 +195,9 @@ body.noglow .glow { opacity: 0 !important; }
 .cell.sel { background: var(--accent); color: var(--ink); }
 .cell.sel.wrong { background: var(--red); color: var(--ink); }
 .cell .v { display: block; line-height: 1; }
-.notes { position: absolute; inset: 7%; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); font-family: var(--mono); font-size: 2.5cqw; font-weight: 500; color: var(--text3); }
-.notes span { display: flex; align-items: center; justify-content: center; }
-.notes span.hl { color: var(--accent); }
+.cell .notes { position: absolute; inset: 7%; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); font-family: var(--mono); font-size: 2.5cqw; font-weight: 500; color: var(--text3); }
+.cell .notes span { display: flex; align-items: center; justify-content: center; }
+.cell .notes span.hl { color: var(--accent); }
 .cell.sel .notes span { color: var(--ink); }
 .cell.pop .v { animation: pop .28s ease; }
 @keyframes pop { 0% { transform: scale(.5); opacity: .2; } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
@@ -212,7 +212,7 @@ body.noglow .glow { opacity: 0 !important; }
 .context { margin: 12px 0 0; min-height: 18px; text-align: center; font-size: 13px; color: var(--text2); flex-shrink: 0; }
 .tools { margin-top: auto; height: 62px; padding: 6px; border-radius: 31px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; flex-shrink: 0; }
 .tools button { position: relative; border-radius: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; font-weight: 500; color: #E4E4E7; transition: background-color .2s; }
-.tools button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-text); }
+.tools button[aria-pressed="true"] { background: var(--accent); color: var(--ink); font-weight: 700; }
 .tools button:disabled { opacity: .4; }
 .badge { position: absolute; top: 3px; right: calc(50% - 26px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: var(--ink); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
 .pad { margin-top: 10px; display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; flex-shrink: 0; }
@@ -220,8 +220,20 @@ body.noglow .glow { opacity: 0 !important; }
 .key b { font-size: 26px; font-weight: 500; line-height: 1; letter-spacing: -.02em; }
 .key small { font-family: var(--mono); font-size: 10px; color: var(--text3); }
 .key.done { opacity: .28; pointer-events: none; }
-.pad.notes .key { border-color: var(--accent-line); }
-.pad.notes .key b { font-size: 20px; color: var(--accent); }
+.pad.noting .key { background: var(--accent-soft); border: 1.5px dashed var(--accent-line); }
+.pad.noting .key b { font-size: 19px; color: var(--accent-text); }
+
+/* In Safari (not installed), its floating toolbar covers the bottom of the page: lift the controls above it. */
+@media (pointer: coarse) {
+  body.browser .screen { padding-bottom: calc(var(--safe-b) + 78px); }
+  body.browser .board-wrap {
+    width: min(100%, calc(100vh - var(--safe-t) - var(--safe-b) - 456px));
+    width: min(100%, calc(100dvh - var(--safe-t) - var(--safe-b) - 456px));
+  }
+}
+.install { display: flex; align-items: center; gap: 12px; padding: 14px 14px 14px 18px; border-radius: 22px; margin-bottom: 16px; font-size: 13px; line-height: 1.45; color: var(--text2); }
+.install b { color: var(--text); font-weight: 600; }
+.install button { width: 36px; height: 36px; flex-shrink: 0; border-radius: 18px; display: flex; align-items: center; justify-content: center; color: var(--text2); }
 
 /* win */
 .win-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; margin: 0 -20px; padding: 0 20px; }
@@ -262,6 +274,10 @@ body.noglow .glow { opacity: 0 !important; }
 
   <div class="tab-panel" data-panel="play" role="tabpanel">
     <div class="panel-body">
+      <div class="install glass" id="installTip" hidden>
+        <span>For the full-screen app, tap <b>Share</b> then <b>Add to Home Screen</b>, and open it from that icon.</span>
+        <button id="installClose" aria-label="Dismiss tip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
       <button class="continue glass" id="continueBtn" hidden>
         <span class="cont-text">
           <span class="chip">In progress</span>
@@ -761,7 +777,7 @@ function renderGame() {
     k.classList.toggle('done', left <= 0);
     k.setAttribute('aria-label', (g.notesMode ? 'Note ' : 'Place ') + (idx + 1) + ', ' + left + ' left');
   });
-  padEl.classList.toggle('notes', g.notesMode);
+  padEl.classList.toggle('noting', g.notesMode);
   $('#notesBtn').setAttribute('aria-pressed', String(g.notesMode));
   $('#notesLabel').textContent = g.notesMode ? 'Notes on' : 'Notes';
   $('#hintBadge').textContent = g.hints;
@@ -1064,6 +1080,11 @@ setInterval(() => {
 }, 1000);
 
 /* ---------- boot ---------- */
+const standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+document.body.classList.toggle('browser', !standalone);
+$('#installTip').hidden = standalone || !isIOS || store.get('installTipDismissed', false);
+$('#installClose').addEventListener('click', () => { store.set('installTipDismissed', true); $('#installTip').hidden = true; });
 applyTheme();
 renderHome();
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {

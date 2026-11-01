@@ -1,5 +1,5 @@
 // Offline support: the app shell is cached on install; pages try the network first so updates show up.
-const CACHE = 'midnight-sudoku-v1';
+const CACHE = 'midnight-sudoku-v2';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
